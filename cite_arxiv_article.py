@@ -22,6 +22,9 @@ CitationData = collections.namedtuple('CitationData', ['author', 'title', 'year'
 def display_usage():
 	print('Usage: \033[32m./cite_arxiv_article.py\033[0m \033[33m<article identifier>\033[0m, e.g.')
 	print('       \033[32m./cite_arxiv_article.py\033[0m \033[33m1312.7188\033[0m')
+	print('')
+	print('       \033[32m--SPIRES flag for SPIRES citation style\033[0m')
+	print('')
 	print('For older articles where the full URL includes the subfield,\ninclude the subfield as follows:')
 	print('https://arxiv.org/abs/hep-th/0605198 -> \033[32m./cite_arxiv_article.py\033[0m \033[33mhep-th/0605198\033[0m')
 	exit()
@@ -86,15 +89,26 @@ def make_tag(cd: CitationData) -> str:
 		# first 3 letters of surname + year
 		return surname[:3] + cd.year[-2:]
 
-def format_citation_data(cd: CitationData) -> str:
+def format_citation_data(cd: CitationData, identifier: str, spire_style: bool) -> str:
 	tag = make_tag(cd)
-	return ('@article{%s,\n\tauthor = {%s},\n\ttitle = {%s},\n\tyear = {%s},\n\tnote = {\\url{%s}}\n}' %
-		(tag, cd.author, cd.title, cd.year, cd.link))
+	if spire_style:
+		return ('@article{%s,\n\tauthor = {%s},\n\tyear = {%s},\n\ttitle = {%s},\n\teprint = {%s},\n\tarchivePrefix = "arXiv"\n}' % (tag, cd.author, cd.year, cd.title, identifier))
+	else:
+		return ('@article{%s,\n\tauthor = {%s},\n\ttitle = {%s},\n\tyear = {%s},\n\tnote = {\\url{%s}}\n}' %
+			(tag, cd.author, cd.title, cd.year, cd.link))
 
 def main():
+	spires = False
 	if len(sys.argv) == 1 or sys.argv[1] in ('-h', '-help', '--help'):
 		display_usage()
-	print(format_citation_data(parse_response(get_data_from_arXiv(make_url(sys.argv[1])))))
+	identifier = sys.argv[1]
+	if sys.argv[1] == '--SPIRES':
+		if len(sys.argv) == 2:
+			display_usage()
+		else:
+			spires = True
+			identifier = sys.argv[2]
+	print(format_citation_data(parse_response(get_data_from_arXiv(make_url(identifier))), identifier, spire_style=spires))
 
 if __name__ == '__main__':
 	main()
