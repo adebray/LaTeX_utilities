@@ -10,8 +10,10 @@
 # for capital letters in acronyms or proper nouns: many BibTeX style files will set them to lowercase
 # unless escaped.
 
+import argparse
 import collections
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -19,15 +21,23 @@ import xml.etree.ElementTree as ET
 
 CitationData = collections.namedtuple('CitationData', ['author', 'title', 'year', 'link'])
 
-def display_usage():
-	print('Usage: \033[32m./cite_arxiv_article.py\033[0m \033[33m<article identifier>\033[0m, e.g.')
-	print('       \033[32m./cite_arxiv_article.py\033[0m \033[33m1312.7188\033[0m')
-	print('')
-	print('       \033[32m--SPIRES flag for SPIRES citation style\033[0m')
-	print('')
-	print('For older articles where the full URL includes the subfield,\ninclude the subfield as follows:')
-	print('https://arxiv.org/abs/hep-th/0605198 -> \033[32m./cite_arxiv_article.py\033[0m \033[33mhep-th/0605198\033[0m')
-	exit()
+# for parsing the command-line arguments
+parser = argparse.ArgumentParser(
+	prog='cite_ariv_article.py',
+	usage = '\033[32m./cite_arxiv_article.py\033[0m \033[33m<article identifier>\033[0m, e.g.\n       \033[32m./cite_arxiv_article.py\033[0m \033[33m1312.7188\033[0m',
+	epilog = 'For older articles where the full URL includes the subfield,\ninclude the subfield as follows:\nhttps://arxiv.org/abs/hep-th/0605198 -> \033[32m./cite_arxiv_article.py\033[0m \033[33mhep-th/0605198\033[0m'
+)
+parser.add_argument('--SPIRES', help='flag for SPIRES citation style', action='store_true')
+parser.add_argument('--copy', help='copies the output to the clipboard', action='store_true')
+parser.add_argument('identifier', help='arXiv article identifier', action='store', nargs=1)
+
+# copies the string xs to the clipboard
+# NOTE: this works on ubuntu and probably doesn't work on other systems
+# if you are using this program and need this functionality on a non-Ubuntu system,
+# please write to me
+def copy_to_clipboard(xs: str):
+	copier = subprocess.Popen(['xclip', '-selection', 'clipboard'], stdin=subprocess.PIPE)
+	copier.communicate(bytes(xs, encoding='utf8')) # NOTE: will this cause problems with Unicode?
 
 # builds the URL which makes the API request
 def make_url(identifier: str) -> str:
@@ -98,17 +108,17 @@ def format_citation_data(cd: CitationData, identifier: str, spire_style: bool) -
 			(tag, cd.author, cd.title, cd.year, cd.link))
 
 def main():
-	spires = False
-	if len(sys.argv) == 1 or sys.argv[1] in ('-h', '-help', '--help'):
-		display_usage()
-	identifier = sys.argv[1]
-	if sys.argv[1] == '--SPIRES':
-		if len(sys.argv) == 2:
-			display_usage()
-		else:
-			spires = True
-			identifier = sys.argv[2]
-	print(format_citation_data(parse_response(get_data_from_arXiv(make_url(identifier))), identifier, spire_style=spires))
+	args = parser.parse_args()
+	bibtex_output = format_citation_data(
+		parse_response(
+			get_data_from_arXiv(
+				make_url(args.identifier[0])
+			)
+		), args.identifier[0], spire_style=args.SPIRES
+	)
+	print(bibtex_output)
+	if args.copy:
+		copy_to_clipboard(bibtex_output)
 
 if __name__ == '__main__':
 	main()
